@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("SafeVault")]
-[assembly: AssemblyDescription("SafeVault")]
+[assembly: AssemblyTitle("YandexDiscSync")]
+[assembly: AssemblyDescription("YandexDiscSync")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Evgenii Ziuzin")]
+[assembly: AssemblyCompany("Evgeny Zyuzin")]
 [assembly: AssemblyProduct("KeePass Plugin")]
-[assembly: AssemblyCopyright("Copyright © 2016-2017 Evgenii Ziuzin")]
+[assembly: AssemblyCopyright("Copyright © 2018-2019 Evgeny Zyuzin")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

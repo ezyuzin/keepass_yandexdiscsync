@@ -1,5 +1,5 @@
 /*
-  SafeVault KeePass Plugin
+  YandexDisc Sync KeePass Plugin
   Copyright (C) 2016-2017 Evgeny Zyuzin <evgeny.zyuzin@gmail.com>
 
   This program is free software; you can redistribute it and/or modify
@@ -76,13 +76,13 @@ namespace YandexDiscSync
             var tsmiSyncLocal = new ToolStripMenuItem();
             tsmiSyncLocal.Name = SyncCommand.SyncLocal.ToString();
             tsmiSyncLocal.Text = @"Sync Local << Remote";
-            tsmiSyncLocal.Click += OnSyncWithSafeVault;
+            tsmiSyncLocal.Click += OnSyncWithYandexDisc;
             _tsmiPopup.DropDownItems.Add(tsmiSyncLocal);
 
             var tsmiSyncRemote = new ToolStripMenuItem();
             tsmiSyncRemote.Name = SyncCommand.SyncRemote.ToString();
             tsmiSyncRemote.Text = @"Sync Local << >> Remote";
-            tsmiSyncRemote.Click += OnSyncWithSafeVault;
+            tsmiSyncRemote.Click += OnSyncWithYandexDisc;
             _tsmiPopup.DropDownItems.Add(tsmiSyncRemote);
 
             _tsmiPopup.DropDownItems.Add(new ToolStripSeparator());
@@ -90,13 +90,13 @@ namespace YandexDiscSync
             var tsmiDownload = new ToolStripMenuItem();
             tsmiDownload.Name = SyncCommand.Download.ToString();
             tsmiDownload.Text = @"Download";
-            tsmiDownload.Click += OnSyncWithSafeVault;
+            tsmiDownload.Click += OnSyncWithYandexDisc;
             _tsmiPopup.DropDownItems.Add(tsmiDownload);
 
             var tsmiUpload = new ToolStripMenuItem();
             tsmiUpload.Name = SyncCommand.Upload.ToString();
             tsmiUpload.Text = @"Upload";
-            tsmiUpload.Click += OnSyncWithSafeVault;
+            tsmiUpload.Click += OnSyncWithYandexDisc;
             _tsmiPopup.DropDownItems.Add(tsmiUpload);
 
             _tsmiPopup.DropDownItems.Add(new ToolStripSeparator());
@@ -197,7 +197,7 @@ namespace YandexDiscSync
         /// <summary>
         /// Event handler for sync menu entries
         /// </summary>
-        private void OnSyncWithSafeVault(object sender, EventArgs e)
+        private void OnSyncWithYandexDisc(object sender, EventArgs e)
         {
             ToolStripItem item = (ToolStripItem)sender;
             SyncCommand syncCommand = (SyncCommand)Enum.Parse(typeof(SyncCommand), item.Name);
@@ -545,7 +545,7 @@ namespace YandexDiscSync
         }
 
         /// <summary>
-        /// Sync SafeVault with currently open Database file
+        /// Sync YandexDisc with currently open Database file
         /// </summary>
         /// <returns>Return status of the update</returns>
         private void SyncDatabase(PwDatabase pwDatabase, byte[] dbData, bool forceSave)

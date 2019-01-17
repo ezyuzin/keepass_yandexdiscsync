@@ -168,7 +168,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\B48x48_SafeVault.png" />
     <None Include="sign.snk" />
   </ItemGroup>
   <ItemGroup>
