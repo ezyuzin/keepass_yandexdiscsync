@@ -1,6 +1,6 @@
 # Keepass YandexDisc Sync Plugin
 
-KeepPass plugin sync and access to keepass databases with Yandex Disc
+KeepPass plugin sync and access to keepass databases with Yandex Disc.
 Support KeePass >= v2.xx.xx
 
 Features:
