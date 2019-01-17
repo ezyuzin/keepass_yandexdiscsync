@@ -1,0 +1,18 @@
+# These files are binary and should be left untouched
+# (binary is a macro for -text -diff)
+*.png binary -delta
+*.jpg binary -delta
+*.jpeg binary -delta
+*.gif binary -delta
+*.ico binary -delta
+*.mov binary -delta
+*.mp4 binary -delta
+*.mp3 binary -delta
+*.flv binary -delta
+*.fla binary -delta
+*.swf binary -delta
+*.gz binary -delta
+*.zip binary -delta
+*.7z binary -delta
+*.ttf binary -delta
+*.pdf binary -delta
