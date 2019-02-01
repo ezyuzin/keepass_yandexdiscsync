@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading;
-
-namespace WebDav
+﻿namespace WebDav
 {
     /// <summary>
     /// Represents parameters for the PUT WebDAV method.
@@ -33,5 +30,6 @@ namespace WebDav
         /// </summary>
         public HttpHeaderCollection Headers { get; set; }
 
+        public WebDavOperationCallback OperationProgress;
     }
 }

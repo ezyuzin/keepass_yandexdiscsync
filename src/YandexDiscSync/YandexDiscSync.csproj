@@ -145,6 +145,8 @@
     <Compile Include="WebDav.Client\Response\WebDavResponse.cs" />
     <Compile Include="WebDav.Client\Response\WebDavStreamResponse.cs" />
     <Compile Include="WebDav.Client\WebDavClient.cs" />
+    <Compile Include="WebDav.Client\WebDavOperationCallback.cs" />
+    <Compile Include="WebDav.Client\WebDavOperationInfo.cs" />
     <Compile Include="YandexWebDavClient.cs" />
     <Compile Include="YandexDiscSyncExt.cs" />
     <Compile Include="YandexDiscSyncConf.cs" />

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Net;
-using System.Threading;
 
 namespace WebDav
 {
@@ -37,10 +36,7 @@ namespace WebDav
             if (httpRequest.Proxy != null)
                 httpRequest.Proxy.Credentials = CredentialCache.DefaultCredentials;
 
-            httpRequest.ReadWriteTimeout = 5000;
-            httpRequest.Timeout = 5000;
-
-            foreach(var httpheader in Headers)
+            foreach (var httpheader in Headers)
             {
                 httpRequest.Headers.Add(httpheader.Name, httpheader.Value);
             }
@@ -50,36 +46,77 @@ namespace WebDav
                 httpRequest.Headers.Add(httpheader.Name, httpheader.Value);
             }
 
-           if (requestParams.Content != null)
-           {
-               if (!string.IsNullOrEmpty(requestParams.ContentType))
-                   httpRequest.ContentType = requestParams.ContentType;
+            requestParams.OperationProgress?.Invoke(new WebDavOperationInfo { Progress = 0 });
+            httpRequest.Timeout = 15000;
+            httpRequest.ReadWriteTimeout = 15000;
+            httpRequest.ContentLength = 0;
 
-               var data = requestParams.Content.GetContent();
-               httpRequest.ContentLength = data.Length;
+            if (requestParams.Content != null)
+            {
+                var data = requestParams.Content.GetContent();
 
-               var requestStream = httpRequest.GetRequestStream();
-               var buf = new byte[512];
-               long count = 0;
-               while (true)
-               {
-                   var nRead = data.Read(buf, 0, buf.Length);
-                   if (nRead == 0)
-                       break;
+                double progress = 0;
+                requestParams.OperationProgress?.Invoke(new WebDavOperationInfo { Progress = 0 });
 
-                   count += nRead;
-                   requestStream.Write(buf, 0, nRead);
-               }
+                if (data.Length > 0)
+                {
+                    var bufLen = (data.Length < 1 * 1024 * 1024)
+                        ? data.Length
+                        : 1 * 1024 * 1024;
 
-           }
+                    var buf = new byte[bufLen];
+                    long count = data.Length;
+
+                    httpRequest.ContentLength = data.Length;
+                    if (data.Length > 1 * 1024 * 1024)
+                    {
+                        httpRequest.AllowWriteStreamBuffering = false;
+                    }
+
+                    httpRequest.Timeout = 1000 * 60 * 60;
+                    httpRequest.ReadWriteTimeout = 1000 * 60 * 60;
+                    if (!string.IsNullOrEmpty(requestParams.ContentType))
+                        httpRequest.ContentType = requestParams.ContentType;
+
+                    using (var requestStream = httpRequest.GetRequestStream())
+                    {
+                        while (count > 0)
+                        {
+                            int nRead = (count < buf.Length) ? (int) count : buf.Length;
+
+                            nRead = data.Read(buf, 0, nRead);
+                            if (nRead > 0)
+                            {
+                                count -= nRead;
+                                requestStream.Write(buf, 0, nRead);
+
+                                if (requestParams.OperationProgress != null)
+                                {
+                                    double progress1 = 100.0 * (data.Length - count) / data.Length;
+                                    if (progress1 - progress >= 0.1)
+                                    {
+                                        requestParams.OperationProgress?.Invoke(new WebDavOperationInfo {Progress = progress});
+                                        progress = progress1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                requestParams.OperationProgress?.Invoke(new WebDavOperationInfo { Progress = 100 });
+            }
 
             try
             {
-                return (HttpWebResponse) httpRequest.GetResponse();
+                return (HttpWebResponse)httpRequest.GetResponse();
             }
             catch (WebException webException)
             {
-                return (HttpWebResponse) webException.Response;
+                return (HttpWebResponse)webException.Response;
+            }
+            finally
+            {
             }
         }
 

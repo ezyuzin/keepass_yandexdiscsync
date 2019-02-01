@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.Specialized;
 
 namespace WebDav
 {
@@ -14,5 +13,7 @@ namespace WebDav
 
         public HttpContent Content { get; set; }
         public string ContentType { get; set; }
+
+        public WebDavOperationCallback OperationProgress;
     }
 }

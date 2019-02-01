@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Xml.Linq;
 using KeePassLib.Security;
 using WebDav;
@@ -58,22 +59,20 @@ namespace YandexDiscSync
                     throw new ApplicationException($"Unable save file: --> {response.StatusCode} {response.Description}");
             }
 
-            var name = XName.Get("x-lastmodified", "DataSync");
+            RetryIfFail(5, () =>
+            {
+                var name = XName.Get("x-lastmodified", "DataSync");
 
-            var patch = new ProppatchParameters();
-            patch.PropertiesToSet.Add(name, lastModified.ToString("u"));
-            patch.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
+                var patch = new ProppatchParameters();
+                patch.PropertiesToSet.Add(name, lastModified.ToString("u"));
+                patch.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
 
-            var propPatch = webDav.Proppatch(yaFile.Uri, patch);
-            if (!propPatch.IsSuccessful)
-                throw new ApplicationException($"Unable update file properties: --> {propPatch.StatusCode} {propPatch.Description}");
+                var propPatch = webDav.Proppatch(yaFile.Uri, patch);
+                if (!propPatch.IsSuccessful)
+                    throw new ApplicationException($"Unable update file properties: --> {propPatch.StatusCode} {propPatch.Description}");
 
-            //var propFind1 = new PropfindParameters();
-            //propFind1.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
-            //propFind1.CustomProperties.Add(XName.Get("x-lastmodified", "DataSync"));
-
-            //var propFind = webDav.Propfind(yaFile.Uri, propFind1);
-            //Console.WriteLine(propFind.Resources);
+                return true;
+            });
         }
 
         private void CreateDirectory(string filepath, WebDavClient webDav)
@@ -83,17 +82,21 @@ namespace YandexDiscSync
             for (int i = 0; i < pathItems.Length; i++)
             {
                 path = path + pathItems[i];
-                var propFind1 = new PropfindParameters();
-                var propFind = webDav.Propfind(new Uri($"{webDav.BaseAddress}{path}"), propFind1);
-                if (!propFind.IsSuccessful)
+                var propParam = new PropfindParameters();
+                RetryIfFail(5, () =>
                 {
-                    if (propFind.StatusCode != 404)
-                        throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
+                    var propFind = webDav.PropFind(new Uri($"{webDav.BaseAddress}{path}"), propParam);
+                    if (!propFind.IsSuccessful)
+                    {
+                        if (propFind.StatusCode != 404)
+                            throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
 
-                    var folder = webDav.Mkcol(new Uri($"{webDav.BaseAddress}{path}"));
-                    if (!folder.IsSuccessful)
-                        throw new ApplicationException($"Unable create folder: --> {folder.StatusCode} {folder.Description}");
-                }
+                        var folder = webDav.Mkcol(new Uri($"{webDav.BaseAddress}{path}"));
+                        if (!folder.IsSuccessful)
+                            throw new ApplicationException($"Unable create folder: --> {folder.StatusCode} {folder.Description}");
+                    }
+                    return propFind;
+                });
                 path = path + "/";
             }
         }
@@ -126,15 +129,19 @@ namespace YandexDiscSync
             var webDav = GetWebDavClient();
             var yaFile = new YandexDiscFile(filename1, Location, webDav);
 
-            var propFind1 = new PropfindParameters();
-            var propFind = webDav.Propfind(yaFile.Uri, propFind1);
-            if (!propFind.IsSuccessful)
+            var propParam = new PropfindParameters();
+            RetryIfFail(5, () =>
             {
-                if (propFind.StatusCode == 404)
-                    return false;
+                var propFind1 = webDav.PropFind(yaFile.Uri, propParam);
+                if (!propFind1.IsSuccessful)
+                {
+                    if (propFind1.StatusCode == 404)
+                        return false;
 
-                throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
-            }
+                    throw new ApplicationException($"Unable read file props: --> {propFind1.StatusCode} {propFind1.Description}");
+                }
+                return true;
+            });
             return true;
         }
 
@@ -143,18 +150,23 @@ namespace YandexDiscSync
             var webDav = GetWebDavClient();
             var yaFile = new YandexDiscFile(filename1, Location, webDav);
 
-            var propFind1 = new PropfindParameters();
-            propFind1.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
-            propFind1.CustomProperties.Add(XName.Get("x-lastmodified", "DataSync"));
+            var propParams = new PropfindParameters();
+            propParams.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
+            propParams.CustomProperties.Add(XName.Get("x-lastmodified", "DataSync"));
 
-            var propFind = webDav.Propfind(yaFile.Uri, propFind1);
-            if (!propFind.IsSuccessful)
+            var propFind = RetryIfFail(5, () =>
             {
-                throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
-            }
+                var propFind1 = webDav.PropFind(yaFile.Uri, propParams);
+                if (!propFind1.IsSuccessful)
+                {
+                    throw new ApplicationException($"Unable read file props: --> {propFind1.StatusCode} {propFind1.Description}");
+                }
+                return propFind1;
+            });
 
-            var resource = propFind.Resources
-                    .FirstOrDefault(m => m.Uri == $"/{yaFile.Location}");
+            var resource = propFind
+                .Resources
+                .FirstOrDefault(m => m.Uri == $"/{yaFile.Location}");
 
             var prop = resource?.Properties.FirstOrDefault(m => m.Name.NamespaceName == "DataSync" && m.Name.LocalName == "x-lastmodified");
             if (prop != null && !string.IsNullOrEmpty(prop.Value))
@@ -163,6 +175,24 @@ namespace YandexDiscSync
             }
 
             return DateTime.MinValue;
+        }
+
+        public static T RetryIfFail<T>(int count, Func<T> method)
+        {
+            while (true)
+            {
+                try
+                {
+                    return method.Invoke();
+                }
+                catch
+                {
+                    if (--count < 0)
+                        throw;
+
+                    Thread.Sleep(500);
+                }
+            }
         }
     }
 }

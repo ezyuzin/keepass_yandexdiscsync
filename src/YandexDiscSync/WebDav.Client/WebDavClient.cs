@@ -1,7 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Xml.Linq;
 
 namespace WebDav
 {
@@ -11,11 +14,8 @@ namespace WebDav
     public class WebDavClient
     {
         private IWebDavDispatcher _dispatcher;
-
         private IResponseParser<PropfindResponse> _propfindResponseParser;
-
         private IResponseParser<ProppatchResponse> _proppatchResponseParser;
-
         private IResponseParser<LockResponse> _lockResponseParser;
 
         public Uri BaseAddress
@@ -27,6 +27,15 @@ namespace WebDav
         public HttpHeaderCollection HttpHeaders
         {
             get { return _dispatcher.Headers; }
+        }
+
+        public WebDavClient(string baseAddress) : this(new Uri(baseAddress, UriKind.Absolute))
+        {
+        }
+
+        public void SetAuthorization(string username, string password)
+        {
+            HttpHeaders["Authorization"] = "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes($"{username}:{password}"));
         }
 
         /// <summary>
@@ -43,14 +52,181 @@ namespace WebDav
             SetLockResponseParser(lockResponseParser);
         }
 
+        public bool IsDirectoryExist(string webDavLocation)
+        {
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+            var webDavFile = new Uri($"{this.BaseAddress}{webDavLocation}");
+
+            var propFind1 = new PropfindParameters();
+            var propFind = this.PropFind(webDavFile, propFind1);
+            if (!propFind.IsSuccessful)
+            {
+                if (propFind.StatusCode == 404)
+                    return false;
+
+                throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
+            }
+            return (propFind.Resources[0].IsCollection);
+        }
+
+        public bool IsFileExist(string webDavLocation)
+        {
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+            var webDavFile = new Uri($"{this.BaseAddress}{webDavLocation}");
+
+            var propFind1 = new PropfindParameters();
+            var propFind = this.PropFind(webDavFile, propFind1);
+            if (!propFind.IsSuccessful)
+            {
+                if (propFind.StatusCode == 404)
+                    return false;
+
+                throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
+            }
+
+            return (propFind.Resources[0].IsCollection == false);
+        }
+
+        public void Upload(string webDavLocation, string localFile, WebDavOperationCallback operationProgress = null)
+        {
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+
+            var webDavFile = new Uri($"{this.BaseAddress}{webDavLocation}");
+            using (var stream = new FileStream(localFile, FileMode.Open))
+            {
+                var putFileParams = new PutFileParameters();
+                putFileParams.OperationProgress = operationProgress;
+
+                var response = this.PutFile(webDavFile, stream, putFileParams);
+                if (!response.IsSuccessful)
+                    throw new ApplicationException($"Unable save file: --> {response.StatusCode} {response.Description}");
+            }
+
+            var name = XName.Get("x-lastmodified", "DataSync");
+
+            FileInfo fi = new FileInfo(localFile);
+
+            int attempt = 5;
+            while (true)
+            {
+                var patch = new ProppatchParameters();
+                patch.PropertiesToSet.Add(name, fi.LastWriteTimeUtc.ToString("u"));
+                patch.Namespaces.Add(new NamespaceAttr("u", "DataSync"));
+
+                var propPatch = this.Proppatch(webDavFile, patch);
+                if (propPatch.IsSuccessful)
+                    break;
+
+                attempt = attempt - 1;
+                if (attempt == 0)
+                {
+                    throw new ApplicationException($"Unable update file properties: --> {propPatch.StatusCode} {propPatch.Description}");
+                }
+                Thread.Sleep(1000);
+            }
+        }
+
+        public void Download(string webDavLocation, string localFile, WebDavOperationCallback operationProgress = null)
+        {
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+
+            var webDavFile = new Uri($"{this.BaseAddress}{webDavLocation}");
+
+            operationProgress?.Invoke(new WebDavOperationInfo { Progress = 0 });
+
+            using(var outputStream = new FileStream(localFile, FileMode.Create))
+            using (var response = this.GetFile(webDavFile, false, new GetFileParameters()))
+            {
+                if (!response.IsSuccessful)
+                    throw new ApplicationException($"Unable read file: --> {response.StatusCode} {response.Description}");
+
+                long count = response.Stream.Length;
+                byte[] buf = new byte[32768];
+                while (count > 0)
+                {
+                    int nRead = (count < buf.Length) ? (int)count : buf.Length;
+
+                    nRead = response.Stream.Read(buf, 0, nRead);
+                    outputStream.Write(buf, 0, nRead);
+                    count -= nRead;
+
+                    operationProgress?.Invoke(new WebDavOperationInfo
+                    {
+                        Progress = 100.0 * (response.Stream.Length - count) / response.Stream.Length
+                    });
+                }
+
+                operationProgress?.Invoke(new WebDavOperationInfo
+                {
+                    Progress = 100.0
+                });
+            }
+        }
+
+        public void CreateDirectory(string webDavLocation)
+        {
+            if (IsDirectoryExist(webDavLocation))
+                return;
+
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+            var propFind1 = this.PropFind(new Uri($"{BaseAddress}{webDavLocation}"), new PropfindParameters());
+            if (propFind1.IsSuccessful)
+            {
+                if (propFind1.Resources[0].IsCollection == false)
+                    throw new ApplicationException($"Unable create directory, file with same name found.");
+            }
+            
+            if (propFind1.StatusCode != 404)
+                throw new ApplicationException($"Unable read file props: --> {propFind1.StatusCode} {propFind1.Description}");
+
+
+
+            var pathItems = webDavLocation.Split('/');
+            var path = "";
+            for (int i = 0; i < pathItems.Length; i++)
+            {
+                path = path + pathItems[i];
+                var propFind = this.PropFind(new Uri($"{BaseAddress}{path}"), new PropfindParameters());
+                if (!propFind.IsSuccessful)
+                {
+                    if (propFind.StatusCode != 404)
+                        throw new ApplicationException($"Unable read file props: --> {propFind.StatusCode} {propFind.Description}");
+
+                    var folder = Mkcol(new Uri($"{BaseAddress}{path}"));
+                    if (!folder.IsSuccessful)
+                        throw new ApplicationException($"Unable create folder: --> {folder.StatusCode} {folder.Description}");
+                }
+                path = path + "/";
+            }
+        }
+
+        public string[] GetFiles(string webDavLocation)
+        {
+            if (!IsDirectoryExist(webDavLocation))
+                throw new ApplicationException($"Directory not Found");
+               
+            webDavLocation = webDavLocation.Replace("\\", "/").Trim('/');
+            var propFind = this.PropFind(new Uri($"{BaseAddress}{webDavLocation}"), new PropfindParameters { ApplyTo = ApplyTo.Propfind.ResourceAndChildren });
+            if (!propFind.IsSuccessful)
+            {
+                throw new ApplicationException($"Unable GetFiles");
+            }
+
+            return propFind.Resources
+                .Where(m => m.IsCollection == false)
+                .Select(m => m.Uri)
+                .ToArray();
+        }
+
+
         /// <summary>
         /// Retrieves properties defined on the resource identified by the request URI.
         /// </summary>
         /// <param name="requestUri">A string that represents the request URI.</param>
         /// <returns>An instance of <see cref="PropfindResponse" />.</returns>
-        public PropfindResponse Propfind(string requestUri)
+        public PropfindResponse PropFind(string requestUri)
         {
-            return Propfind(CreateUri(requestUri), new PropfindParameters());
+            return PropFind(CreateUri(requestUri), new PropfindParameters());
         }
 
         /// <summary>
@@ -58,9 +234,9 @@ namespace WebDav
         /// </summary>
         /// <param name="requestUri">The <see cref="Uri"/> to request.</param>
         /// <returns>An instance of <see cref="PropfindResponse" />.</returns>
-        public PropfindResponse Propfind(Uri requestUri)
+        public PropfindResponse PropFind(Uri requestUri)
         {
-            return Propfind(requestUri, new PropfindParameters());
+            return PropFind(requestUri, new PropfindParameters());
         }
 
         /// <summary>
@@ -69,9 +245,9 @@ namespace WebDav
         /// <param name="requestUri">A string that represents the request URI.</param>
         /// <param name="parameters">Parameters of the PROPFIND operation.</param>
         /// <returns>An instance of <see cref="PropfindResponse" />.</returns>
-        public PropfindResponse Propfind(string requestUri, PropfindParameters parameters)
+        public PropfindResponse PropFind(string requestUri, PropfindParameters parameters)
         {
-            return Propfind(CreateUri(requestUri), parameters);
+            return PropFind(CreateUri(requestUri), parameters);
         }
 
         /// <summary>
@@ -80,7 +256,7 @@ namespace WebDav
         /// <param name="requestUri">The <see cref="Uri"/> to request.</param>
         /// <param name="parameters">Parameters of the PROPFIND operation.</param>
         /// <returns>An instance of <see cref="PropfindResponse" />.</returns>
-        public PropfindResponse Propfind(Uri requestUri, PropfindParameters parameters)
+        public PropfindResponse PropFind(Uri requestUri, PropfindParameters parameters)
         {
             Guard.NotNull(requestUri, "requestUri");
 
@@ -471,7 +647,7 @@ namespace WebDav
                 headerBuilder.Add(WebDavHeaders.If, IfHeaderHelper.GetHeaderValue(parameters.LockToken));
 
             var headers = headerBuilder.AddWithOverwrite(parameters.Headers).Build();
-            var requestParams = new RequestParameters { Headers = headers, Content = content, ContentType = parameters.ContentType };
+            var requestParams = new RequestParameters { Headers = headers, Content = content, ContentType = parameters.ContentType, OperationProgress = parameters.OperationProgress };
             using (var response = _dispatcher.Send(requestUri, HttpMethod.Put, requestParams))
             {
                 return new WebDavResponse(response);
@@ -788,12 +964,14 @@ namespace WebDav
 
         private static string ReadContentAsString(HttpWebResponse content)
         {
+            var encoding = GetResponseEncoding(content, Encoding.UTF8);
+
             using (var responseContent = content.GetResponseStream())
             {
                 if (responseContent == null)
                     return string.Empty;
 
-                using (var stream = new StreamReader(responseContent))
+                using (var stream = new StreamReader(responseContent, encoding))
                 {
                     return stream.ReadToEnd();
                 }

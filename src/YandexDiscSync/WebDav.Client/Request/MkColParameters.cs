@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading;
-
-namespace WebDav
+﻿namespace WebDav
 {
     /// <summary>
     /// Represents parameters for the MKCOL WebDAV method.
