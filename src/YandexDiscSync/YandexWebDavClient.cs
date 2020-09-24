@@ -27,7 +27,7 @@ namespace YandexDiscSync
 
     internal class YandexWebDavClient
     {
-        public delegate void ProgressCallback(string message);
+        public delegate void ProgressCallback(double progress);
         public string Username { get;set; }
         public ProtectedString Password { get;set; }
 
@@ -54,7 +54,13 @@ namespace YandexDiscSync
 
             using (var stream = new MemoryStream(bytes))
             {
-                var response = webDav.PutFile(yaFile.Uri, stream, new PutFileParameters());
+                var props = new PutFileParameters();
+                props.OperationProgress = args =>
+                {
+                  progressCallback?.Invoke(args.Progress);
+                };
+
+                var response = webDav.PutFile(yaFile.Uri, stream, props);
                 if (!response.IsSuccessful)
                     throw new ApplicationException($"Unable save file: --> {response.StatusCode} {response.Description}");
             }
@@ -106,7 +112,13 @@ namespace YandexDiscSync
             var webDav = GetWebDavClient();
             var yaFile = new YandexDiscFile(filename1, Location, webDav);
 
-            using (var response = webDav.GetFile(yaFile.Uri, false, new GetFileParameters()))
+            var props = new GetFileParameters();
+            props.OperationProgress = args =>
+            {
+              progressCallback?.Invoke(args.Progress);
+            };
+
+            using (var response = webDav.GetFile(yaFile.Uri, false, props))
             {
                 if (!response.IsSuccessful)
                     throw new ApplicationException($"Unable read file: --> {response.StatusCode} {response.Description}");

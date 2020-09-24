@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Threading;
 
 namespace WebDav
 {
@@ -46,32 +47,34 @@ namespace WebDav
                 httpRequest.Headers.Add(httpheader.Name, httpheader.Value);
             }
 
+            httpRequest.Headers["X-Yandex-SDK-Version"] = "windows, 1.0";
+            httpRequest.Accept = "*/*";
+            httpRequest.Headers["Depth"] = "1";
+
             requestParams.OperationProgress?.Invoke(new WebDavOperationInfo { Progress = 0 });
             httpRequest.Timeout = 15000;
             httpRequest.ReadWriteTimeout = 15000;
-            httpRequest.ContentLength = 0;
 
             if (requestParams.Content != null)
             {
+                httpRequest.ContentLength = 0;
+                httpRequest.SendChunked = true;
                 var data = requestParams.Content.GetContent();
-
                 double progress = 0;
                 requestParams.OperationProgress?.Invoke(new WebDavOperationInfo { Progress = 0 });
 
                 if (data.Length > 0)
                 {
-                    var bufLen = (data.Length < 1 * 1024 * 1024)
+                    var maxBufLen = 512*1024; //4096;
+                    var bufLen = (data.Length < maxBufLen)
                         ? data.Length
-                        : 1 * 1024 * 1024;
+                        : maxBufLen;
 
                     var buf = new byte[bufLen];
                     long count = data.Length;
 
                     httpRequest.ContentLength = data.Length;
-                    if (data.Length > 1 * 1024 * 1024)
-                    {
-                        httpRequest.AllowWriteStreamBuffering = false;
-                    }
+                    httpRequest.AllowWriteStreamBuffering = false;
 
                     httpRequest.Timeout = 1000 * 60 * 60;
                     httpRequest.ReadWriteTimeout = 1000 * 60 * 60;

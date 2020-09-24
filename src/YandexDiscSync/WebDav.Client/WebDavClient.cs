@@ -472,7 +472,11 @@ namespace WebDav
                 .AddWithOverwrite(parameters.Headers)
                 .Build();
 
-            var requestParams = new RequestParameters { Headers = headers };
+            var requestParams = new RequestParameters
+            {
+              Headers = headers,
+              OperationProgress = parameters.OperationProgress
+            };
             using (var response = _dispatcher.Send(requestUri, HttpMethod.Get, requestParams))
             {
                 return new WebDavStreamResponse(response);

@@ -5,6 +5,8 @@
     /// </summary>
     public class GetFileParameters
     {
+        public WebDavOperationCallback OperationProgress;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GetFileParameters"/> class.
         /// </summary>

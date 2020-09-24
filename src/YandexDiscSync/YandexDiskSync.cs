@@ -366,7 +366,7 @@ namespace YandexDiscSync
                     databaseUuid,
                     File.ReadAllBytes(location),
                     lastModified,
-                    progress => { SetStatusText($"Saving to YandexDisc {progress}%"); });
+                    progress => { SetStatusText($"Saving to YandexDisc ({Math.Floor(progress)}%)"); });
             });
             SetStatusText("Successfull save to YandexDisc");
 
@@ -434,7 +434,7 @@ namespace YandexDiscSync
                     filename,
                     File.ReadAllBytes(pwDatabase.IOConnectionInfo.Path),
                     localLastModified,
-                    progress => { SetStatusText($"Saving to YandexDisc {progress}%"); });
+                    progress => { SetStatusText($"Saving to YandexDisc ({Math.Floor(progress)}%)"); });
             });
             SetStatusText("Successfull Sync Local <=> Remote");
 
@@ -490,7 +490,7 @@ namespace YandexDiscSync
             byte[] databaseData;
             try
             {
-                databaseData = webClient.GetFile(filename, progress => { SetStatusText($"Download {progress}%"); });
+                databaseData = webClient.GetFile(filename, progress => { SetStatusText($"Download ({Math.Floor(progress)}%)"); });
             }
             catch (WebException httpEx)
             {
