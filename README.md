@@ -9,6 +9,7 @@ Features
 * Enable / Disable auto sync on open
 * Bi-directional and One-direction Sync
 * Download, Upload
+
 Support KeePass >= v2.xx.xx
 
 
