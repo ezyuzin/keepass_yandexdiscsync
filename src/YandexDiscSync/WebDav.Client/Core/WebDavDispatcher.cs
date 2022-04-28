@@ -65,7 +65,7 @@ namespace WebDav
 
                 if (data.Length > 0)
                 {
-                    var maxBufLen = 512*1024; //4096;
+                    var maxBufLen = 512 * 1024;
                     var bufLen = (data.Length < maxBufLen)
                         ? data.Length
                         : maxBufLen;

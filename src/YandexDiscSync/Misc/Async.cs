@@ -23,61 +23,51 @@ using System.Windows.Forms;
 
 namespace YandexDiscSync.Misc
 {
-    public class Async
-    {
-        public static void Invoke(Action action)
-        {
-            Exception innerEx = null;
-            using (var autoreset = new AutoResetEvent(false))
-            {
-                var th = new Thread(() =>
-                {
-                    try
-                    {
-                        action.Invoke();
-                    }
-                    catch(Exception e)
-                    {
-                        innerEx = e;
-                    }
-                    autoreset.Set();
-                });
-                th.Start();
-                while(autoreset.WaitOne(100) == false)
-                    Application.DoEvents();
+  public class Async
+  {
+    public static void Invoke(Action action) {
+      Exception innerEx = null;
+      using (var autoreset = new AutoResetEvent(false)) {
+        var th = new Thread(() => {
+          try {
+            action.Invoke();
+          }
+          catch (Exception e) {
+            innerEx = e;
+          }
+          autoreset.Set();
+        });
+        th.Start();
+        while (autoreset.WaitOne(100) == false)
+          Application.DoEvents();
 
-                if (innerEx != null)
-                    throw innerEx;
-            }
-        }
-
-        public static T Invoke<T>(Func<T> action)
-        {
-            T hresult = default(T);
-            Exception innerEx = null;
-            using (var autoreset = new AutoResetEvent(false))
-            {
-                var th = new Thread(() =>
-                {
-                    try
-                    {
-                        hresult = action.Invoke();
-                    }
-                    catch(Exception e)
-                    {
-                        innerEx = e;
-                    }
-                    autoreset.Set();
-                });
-                th.Start();
-                while(autoreset.WaitOne(100) == false)
-                    Application.DoEvents();
-
-                if (innerEx != null)
-                    throw innerEx;
-
-                return hresult;
-            }
-        }
+        if (innerEx != null)
+          throw innerEx;
+      }
     }
+
+    public static T Invoke<T>(Func<T> action) {
+      T hresult = default(T);
+      Exception innerEx = null;
+      using (var autoreset = new AutoResetEvent(false)) {
+        var th = new Thread(() => {
+          try {
+            hresult = action.Invoke();
+          }
+          catch (Exception e) {
+            innerEx = e;
+          }
+          autoreset.Set();
+        });
+        th.Start();
+        while (autoreset.WaitOne(100) == false)
+          Application.DoEvents();
+
+        if (innerEx != null)
+          throw innerEx;
+
+        return hresult;
+      }
+    }
+  }
 }
