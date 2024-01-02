@@ -1,9 +1,9 @@
 function main {
-  $bin = [System.Reflection.Assembly]::LoadFile("$location\YandexDiscSync.dll");
-  write-host $bin;
-  $webdav = new-object WebDav.WebDavClient;
-  $webdav.SetAuthorization("username@yandex.ru", "12345");
-  $files = $webdav.GetFiles("/");
+  $webdav = new-object WebDav.WebDavClient("https://webdav.yandex.ru")
+  $webdav.SetAuthorization("ezyuzin@yandex.ru", "nydagqjdigacoinr");
+  $files = $webdav.GetFiles("/Backups/Docs");
+  $files | ForEach-Object { Write-Host $_ }
+
 }
 
 function Get-ScriptDirectory {
@@ -13,6 +13,6 @@ function Get-ScriptDirectory {
 }
 
 $location = Get-ScriptDirectory;
-$bin = [System.Reflection.Assembly]::LoadFile("$location\YandexDiscSync.dll");
+$bin = [System.Reflection.Assembly]::LoadFile("$location/YandexDiscSync.dll");
 main;
 
